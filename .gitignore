@@ -1,7 +1,7 @@
 # folder
 pcs_dataset
 logs
-
+class_images
 # IDE
 .vscode/
 
