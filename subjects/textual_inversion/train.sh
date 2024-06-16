@@ -56,9 +56,6 @@ for subject in "${!subject_with_cls[@]}"; do
   # 设置数据目录
   DATA_DIR="$DATASET_DIR/$subject"
   
-  # 输出当前正在处理的subject和相应的learnable property
-  echo "Processing subject: $subject with learnable property: $LEARNABLE_PROPERTY"
-  
   # 运行 accelerate launch 命令
   accelerate launch --main_process_port=29517 \
     --gpu_ids=4 \
