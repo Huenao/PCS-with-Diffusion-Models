@@ -9,7 +9,7 @@ import numpy as np
 logger = get_logger(__name__)
 
 
-def parse_args(default=False):
+def parse_args(default=False, inference=False):
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
         "--pretrained_model_name_or_path",
@@ -34,6 +34,15 @@ def parse_args(default=False):
             " or to a folder containing files that 🤗 Datasets can understand."
         ),
     )
+
+    if inference:
+        parser.add_argument(
+            "--dataset_info_path",
+            required=True,
+            type=str,
+            default=None,
+            help="The path of the dataset info.json saved."
+        )
 
     parser.add_argument(
         "--dataset_config_name",

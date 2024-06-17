@@ -2,7 +2,7 @@ import os,sys
 sys.path.append(os.path.join(sys.path[0], '../..'))
 
 from evaluation.single_object.data import get_combinations
-from demo.pipeline import convert_model_to_pipeline
+from evaluation.pipeline import convert_model_to_pipeline
 from fastcomposer.utils import parse_args
 from accelerate.utils import set_seed
 from accelerate import Accelerator
@@ -14,7 +14,7 @@ import PIL
 
 @torch.no_grad()
 def main():
-    args = parse_args()
+    args = parse_args(inference=True)
     accelerator = Accelerator(
         mixed_precision=args.mixed_precision,
     )
@@ -28,10 +28,8 @@ def main():
 
     unique_token = "img"
 
-    dataset_info_path = "../../pcs_dataset/info.json"
-
     prompt_subject_pairs = get_combinations(
-        dataset_info_path, unique_token, is_fastcomposer=True
+        args.dataset_info_path, unique_token, is_fastcomposer=True
     )
 
     for case_id, (prompt_list, subject) in enumerate(prompt_subject_pairs):
