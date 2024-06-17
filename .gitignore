@@ -3,6 +3,7 @@ pcs_dataset
 logs
 class_images
 model
+outputs
 
 # IDE
 .vscode/
