@@ -26,12 +26,12 @@ def main():
     model = convert_model_to_pipeline(args, accelerator.device)
     model.safety_checker = None 
 
-    os.makedirs(args.output_dir, exist_ok=True)
-
     unique_token = "img"
 
+    dataset_info_path = "../../pcs_dataset/info.json"
+
     prompt_subject_pairs = get_combinations(
-        unique_token, is_fastcomposer=True, split="eval"
+        dataset_info_path, unique_token, is_fastcomposer=True
     )
 
     for case_id, (prompt_list, subject) in enumerate(prompt_subject_pairs):
@@ -59,12 +59,11 @@ def main():
 
 
             for instance_id in range(args.num_images_per_prompt):
-                output_images[instance_id].save(
-                    os.path.join(
-                        args.output_dir,
-                        f"subject_{real_case_id:04d}_prompt_{prompt_id:04d}_instance_{instance_id:04d}.jpg",
-                    )
-                )
+                file_path = os.path.join(args.output_dir, subject, f"prompt{prompt_id}")
+                
+                os.makedirs(file_path, exist_ok=True)
+
+                output_images[instance_id].save(os.path.join(file_path, f"{instance_id:04d}.jpg"))
 
 
 if __name__ == "__main__":

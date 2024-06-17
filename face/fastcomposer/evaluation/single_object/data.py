@@ -1,20 +1,4 @@
-IMAGE_TO_GENDER_EVAL = {
-    "000001": "man",
-    "000181": "man",
-    "000268": "man",
-    "000612": "woman",
-    "000667": "woman",
-    "001603": "woman",
-    "001854": "man",
-    "002088": "woman",
-    "002464": "woman",
-    "002782": "man",
-    "002880": "woman",
-    "002929": "woman",
-    "002937": "woman",
-    "003785": "man",
-    "004153": "woman",
-}
+import json
 
 IMAGE_TO_GENDER_DEMO = {
     "bengio": "man",
@@ -28,83 +12,21 @@ IMAGE_TO_GENDER_DEMO = {
 }
 
 
-def get_accessory_prompts(class_token, unique_token):
-    prompts = [
-        "a {0} {1} wearing a red hat".format(unique_token, class_token),
-        "a {0} {1} wearing a santa hat".format(unique_token, class_token),
-        "a {0} {1} wearing a rainbow scarf".format(unique_token, class_token),
-        "a {0} {1} wearing a black top hat and a monocle".format(
-            unique_token, class_token
-        ),
-        "a {0} {1} in a chef outfit".format(unique_token, class_token),
-        "a {0} {1} in a firefighter outfit".format(unique_token, class_token),
-        "a {0} {1} in a police outfit".format(unique_token, class_token),
-        "a {0} {1} wearing pink glasses".format(unique_token, class_token),
-        "a {0} {1} wearing a yellow shirt".format(unique_token, class_token),
-        "a {0} {1} in a purple wizard outfit".format(unique_token, class_token),
-    ]
-    return prompts
+def get_prompts(prompts, class_token, unique_token):
+    return [i.format(unique_token, class_token) for i in prompts]
 
 
-def get_style_prompts(class_token, unique_token):
-    prompts = [
-        f"a painting of a {unique_token} {class_token} in the style of Banksy",
-        f"a painting of a {unique_token} {class_token} in the style of Vincent Van Gogh",
-        f"a colorful graffiti painting of a {unique_token} {class_token}",
-        f"a watercolor painting of a {unique_token} {class_token}",
-        f"a Greek marble sculpture of a {unique_token} {class_token}",
-        f"a street art mural of a {unique_token} {class_token}",
-        f"a black and white photograph of a {unique_token} {class_token}",
-        f"a pointillism painting of a {unique_token} {class_token}",
-        f"a Japanese woodblock print of a {unique_token} {class_token}",
-        f"a street art stencil of a {unique_token} {class_token}",
-    ]
-    return prompts
+def get_combinations(dataset_info_path, unique_token, is_fastcomposer=False):
 
+    with open(dataset_info_path, 'r') as file:
+        data_info = json.load(file)
+        
+    image_to_gender_dict = data_info["face"]["id_with_gender"]
 
-def get_context_prompts(class_token, unique_token):
-    prompts = [
-        "a {0} {1} in the jungle".format(unique_token, class_token),
-        "a {0} {1} in the snow".format(unique_token, class_token),
-        "a {0} {1} on the beach".format(unique_token, class_token),
-        "a {0} {1} on a cobblestone street".format(unique_token, class_token),
-        "a {0} {1} on top of pink fabric".format(unique_token, class_token),
-        "a {0} {1} on top of a wooden floor".format(unique_token, class_token),
-        "a {0} {1} with a city in the background".format(unique_token, class_token),
-        "a {0} {1} with a mountain in the background".format(unique_token, class_token),
-        "a {0} {1} with a blue house in the background".format(
-            unique_token, class_token
-        ),
-        "a {0} {1} on top of a purple rug in a forest".format(
-            unique_token, class_token
-        ),
-    ]
-    return prompts
-
-
-def get_action_prompts(class_token, unique_token):
-    prompts = [
-        f"a {unique_token} {class_token} riding a horse",
-        f"a {unique_token} {class_token} holding a glass of wine",
-        f"a {unique_token} {class_token} holding a piece of cake",
-        f"a {unique_token} {class_token} giving a lecture",
-        f"a {unique_token} {class_token} reading a book",
-        f"a {unique_token} {class_token} gardening in the backyard",
-        f"a {unique_token} {class_token} cooking a meal",
-        f"a {unique_token} {class_token} working out at the gym",
-        f"a {unique_token} {class_token} walking the dog",
-        f"a {unique_token} {class_token} baking cookies",
-    ]
-    return prompts
-
-
-def get_combinations(unique_token, is_fastcomposer=False, split="eval"):
-    if split == "eval":
-        image_to_gender_dict = IMAGE_TO_GENDER_EVAL
-    elif split == "demo":
-        image_to_gender_dict = IMAGE_TO_GENDER_DEMO
-    else:
-        raise ValueError(f"split {split} not supported")
+    prompt_accessory = data_info["face"]["prompt_accessory"]
+    prompt_style = data_info["face"]["prompt_style"]
+    prompt_context = data_info["face"]["prompt_context"]
+    prompt_action = data_info["face"]["prompt_action"]
 
     images = list(image_to_gender_dict.keys())
 
@@ -115,17 +37,17 @@ def get_combinations(unique_token, is_fastcomposer=False, split="eval"):
         if is_fastcomposer:
             # fastcomposer swaps the order of class_token and unique_token
             all_prompts = (
-                get_accessory_prompts(unique_token, class_token)
-                + get_style_prompts(unique_token, class_token)
-                + get_action_prompts(unique_token, class_token)
-                + get_context_prompts(unique_token, class_token)
+                get_prompts(prompt_accessory, unique_token, class_token)
+                + get_prompts(prompt_context, unique_token, class_token)
+                + get_prompts(prompt_action, unique_token, class_token)
+                + get_prompts(prompt_style, unique_token, class_token)
             )
         else:
             all_prompts = (
-                get_accessory_prompts(class_token, unique_token)
-                + get_style_prompts(class_token, unique_token)
-                + get_action_prompts(class_token, unique_token)
-                + get_context_prompts(class_token, unique_token)
+                get_prompts(prompt_accessory, class_token, unique_token)
+                + get_prompts(prompt_context, class_token, unique_token)
+                + get_prompts(prompt_action, class_token, unique_token)
+                + get_prompts(prompt_style, class_token, unique_token)
             )
 
         prompt_pairs.append((all_prompts, subject_name))

@@ -1,4 +1,4 @@
-# Some part of this gradio demo code come from https://github.com/csyxwei/ELITE/blob/main/app_gradio.py
+# Some part of this  demo code come from https://github.com/csyxwei/ELITE/blob/main/app_gradio.py
 # Apache-2.0 License
 
 from demo.pipeline import convert_model_to_pipeline
