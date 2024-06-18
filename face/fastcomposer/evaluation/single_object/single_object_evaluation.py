@@ -12,6 +12,7 @@ import numpy as np
 import argparse
 import torch
 import glob
+import json
 
 
 def read_reference_images(folder_path: str) -> List[np.ndarray]:
@@ -83,6 +84,7 @@ def parse_args():
     parser.add_argument("--num_images_per_prompt", type=int, default=4)
     parser.add_argument("--prediction_folder", type=str)
     parser.add_argument("--reference_folder", type=str)
+    parser.add_argument("--dataset_info_path", type=str)
 
     args = parser.parse_args()
     return args
@@ -93,6 +95,19 @@ def load_reference_image(reference_folder, image_id):
     image_path = sorted(glob.glob(os.path.join(path, "*.jpg")))[0]
     image = Image.open(image_path).convert("RGB")
     return image
+
+
+def convert_to_native(data):
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    elif isinstance(data, np.generic):
+        return data.item()
+    elif isinstance(data, dict):
+        return {key: convert_to_native(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_to_native(item) for item in data]
+    else:
+        return data
 
 
 @torch.no_grad()
@@ -120,19 +135,27 @@ def main():
     text_evaluator = CLIPEvaluator(device=accelerator.device, clip_model="ViT-L/14")
 
     # get subject
-    prompt_subject_pairs = get_combinations("", is_fastcomposer=True, split="eval")
+    prompt_subject_pairs = get_combinations(args.dataset_info_path, "", is_fastcomposer=True)
     image_alignments, text_alignments = [], []
+
+    evaluate_res = dict()
 
     for case_id, (prompt_list, subject) in enumerate(tqdm(prompt_subject_pairs)):
         # TODO: Load reference images using image_ids from subjects
         ref_image = load_reference_image(args.reference_folder, subject)
 
+        res_for_each_subject =dict()
+
         for prompt_id, prompt in enumerate(prompt_list):
+
+            res_for_each_prompt =dict()
+
             for instance_id in range(args.num_images_per_prompt):
                 generated_image_path = os.path.join(
-                    args.prediction_folder,
-                    f"subject_{case_id:04d}_prompt_{prompt_id:04d}_instance_{instance_id:04d}.jpg",
+                    args.prediction_folder, subject, f"prompt{prompt_id}", f"{instance_id:04d}.jpg"
                 )
+                
+
                 generated_image = Image.open(generated_image_path).convert("RGB")
 
                 identity_similarity = compute_average_similarity(
@@ -149,6 +172,12 @@ def main():
                 image_alignments.append(float(identity_similarity))
                 text_alignments.append(float(prompt_similarity))
 
+                res_for_each_prompt[f"{instance_id:04d}.jpg"] = [float(identity_similarity), float(prompt_similarity)]
+            
+            res_for_each_subject[prompt] = res_for_each_prompt
+
+        evaluate_res[subject] = res_for_each_subject
+
     image_alignment = sum(image_alignments) / len(image_alignments)
     text_alignment = sum(text_alignments) / len(text_alignments)
     image_std = np.std(image_alignments)
@@ -159,6 +188,9 @@ def main():
     with open(os.path.join(args.prediction_folder, "score.txt"), "w") as f:
         f.write(f"Image Alignment: {image_alignment} Text Alignment: {text_alignment}")
         f.write(f"Image Alignment Std: {image_std} Text Alignment Std: {text_std}")
+
+    with open(os.path.join("../../eval_results/face/fastcomposer", "evaluation_results.json"), "w") as json_file:
+        json.dump(convert_to_native(evaluate_res), json_file, indent=4)
 
 
 if __name__ == "__main__":
