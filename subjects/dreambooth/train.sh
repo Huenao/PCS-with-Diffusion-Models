@@ -58,7 +58,7 @@ for subject in "${!subject_with_cls[@]}"; do
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --instance_data_dir=$INSTANCE_DIR \
   --class_data_dir=$CLASS_DIR \
-  --output_dir="../../logs/subjects/dream_booth/$subject" \
+  --output_dir="../../logs/subjects/dreambooth/$subject" \
   --with_prior_preservation --prior_loss_weight=1.0 \
   --instance_prompt="a photo of sks $class" \
   --class_prompt="a photo of $class" \
