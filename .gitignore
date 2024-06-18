@@ -4,6 +4,7 @@ logs
 class_images
 model
 outputs
+eval_results
 
 # IDE
 .vscode/
