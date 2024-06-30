@@ -60,7 +60,7 @@ for subject in "${!subject_with_cls[@]}"; do
   
   INSTANCE_DIR="$DATASET_DIR/$subject"
 
-  CLASS_DIR="class_images/$subject"
+  CLASS_DIR="class_images/$class"
 
   accelerate launch --main_process_port=29518 \
   --gpu_ids=7 \
