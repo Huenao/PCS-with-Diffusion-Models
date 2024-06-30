@@ -4,7 +4,7 @@
 declare -A subject_with_cls=(
   ["backpack"]="backpack"
   ["backpack_dog"]="backpack"
-  ["bear_plushie"]="stuffed animal"
+  ["bear_plushie"]="bear"
   ["berry_bowl"]="bowl"
   ["can"]="can"
   ["candle"]="candle"
@@ -21,7 +21,7 @@ declare -A subject_with_cls=(
   ["dog8"]="dog"
   ["duck_toy"]="toy"
   ["fancy_boot"]="boot"
-  ["grey_sloth_plushie"]="stuffed animal"
+  ["grey_sloth_plushie"]="plushie"
   ["monster_toy"]="toy"
   ["pink_sunglasses"]="glasses"
   ["poop_emoji"]="toy"
@@ -31,16 +31,24 @@ declare -A subject_with_cls=(
   ["shiny_sneaker"]="sneaker"
   ["teapot"]="teapot"
   ["vase"]="vase"
-  ["wolf_plushie"]="stuffed animal"
-  ["elephant"]="statue"
-  ["thin_bird"]="statue"
+  ["wolf_plushie"]="wolf"
+  ["elephant"]="elephant"
+  ["thin_bird"]="bird"
   ["physics_mug"]="mug"
   ["clock2"]="clock"
   ["colorful_teapot"]="teapot"
-  ["round_bird"]="statue"
+  ["round_bird"]="bird"
   ["red_teapot"]="teapot"
-  ["cat_statue"]="statue"
-  ["mug_skulls"]="statue"
+  ["cat_statue"]="cat"
+  ["mug_skulls"]="mug"
+  ["barn"]="barn"
+  ["cat3"]="cat"
+  ["teddybear"]="teddybear"
+  ["tortoise_plushy"]="tortoise"
+  ["wooden_pot"]="pot"
+  ["chair"]="chair"
+  ["flower"]="flower"
+  ["table"]="table"
 )
 
 # 模型名称
@@ -58,7 +66,7 @@ for subject in "${!subject_with_cls[@]}"; do
   
   # 运行 accelerate launch 命令
   accelerate launch --main_process_port=29517 \
-    --gpu_ids=4 \
+    --gpu_ids=1 \
     textual_inversion.py \
     --pretrained_model_name_or_path=$MODEL_NAME \
     --train_data_dir=$DATA_DIR \

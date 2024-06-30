@@ -31,15 +31,23 @@ declare -A subject_with_cls=(
   ["teapot"]="teapot"
   ["vase"]="vase"
   ["wolf_plushie"]="stuffed animal"
-  ["elephant"]="statue"
-  ["thin_bird"]="statue"
+  ["elephant"]="animal statue"
+  ["thin_bird"]="animal statue"
   ["physics_mug"]="mug"
   ["clock2"]="clock"
   ["colorful_teapot"]="teapot"
-  ["round_bird"]="statue"
+  ["round_bird"]="animal statue"
   ["red_teapot"]="teapot"
-  ["cat_statue"]="statue"
-  ["mug_skulls"]="statue"
+  ["cat_statue"]="animal statue"
+  ["mug_skulls"]="mug"
+  ["barn"]="barn"
+  ["cat3"]="cat"
+  ["teddybear"]="stuffed animal"
+  ["tortoise_plushy"]="stuffed animal"
+  ["wooden_pot"]="pot"
+  ["chair"]="chair"
+  ["flower"]="flower"
+  ["table"]="table"
 )
 
 MODEL_NAME="runwayml/stable-diffusion-v1-5"
@@ -52,7 +60,7 @@ for subject in "${!subject_with_cls[@]}"; do
   
   INSTANCE_DIR="$DATASET_DIR/$subject"
 
-  CLASS_DIR="class_images/$class"
+  CLASS_DIR="class_images/$subject"
 
   accelerate launch train_dreambooth.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
