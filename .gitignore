@@ -6,6 +6,12 @@ model
 outputs
 eval_results
 
+# styledrop assets
+ckpts
+fid_stats
+vqgan_jax_strongaug.ckpt
+data
+
 # IDE
 .vscode/
 
