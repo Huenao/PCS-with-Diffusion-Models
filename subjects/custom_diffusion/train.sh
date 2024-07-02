@@ -62,7 +62,9 @@ for subject in "${!subject_with_cls[@]}"; do
 
   CLASS_DIR="class_images/$class"
 
-  accelerate launch train_custom_diffusion.py \
+  accelerate launch --main_process_port=29519 \
+  --gpu_ids=1 \
+  train_custom_diffusion.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --instance_data_dir=$INSTANCE_DIR \
   --output_dir="../../logs/subjects/custom_diffusion/$subject" \
@@ -75,6 +77,7 @@ for subject in "${!subject_with_cls[@]}"; do
   --learning_rate=1e-5  \
   --lr_warmup_steps=0 \
   --max_train_steps=250 \
+  --no_safe_serialization \
   --scale_lr --hflip  \
   --modifier_token "<new1>"
 
