@@ -76,7 +76,8 @@ for subject in "${!subject_with_cls[@]}"; do
   --train_batch_size=2  \
   --learning_rate=1e-5  \
   --lr_warmup_steps=0 \
-  --max_train_steps=250 \
+  --max_train_steps=500 \
+  --checkpointing_steps=500 \
   --no_safe_serialization \
   --scale_lr --hflip  \
   --modifier_token "<new1>"
