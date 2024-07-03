@@ -12,6 +12,9 @@ fid_stats
 vqgan_jax_strongaug.ckpt
 data
 
+#ELITE
+checkpoints
+
 # IDE
 .vscode/
 
