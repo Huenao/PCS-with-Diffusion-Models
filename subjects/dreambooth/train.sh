@@ -50,7 +50,7 @@ declare -A subject_with_cls=(
   ["table"]="table"
 )
 
-MODEL_NAME="runwayml/stable-diffusion-v1-5"
+MODEL_NAME="CompVis/stable-diffusion-v1-4"
 
 DATASET_DIR="../../pcs_dataset/subjects/"
 
@@ -79,6 +79,6 @@ for subject in "${!subject_with_cls[@]}"; do
   --lr_scheduler="constant" \
   --lr_warmup_steps=0 \
   --num_class_images=200 \
-  --max_train_steps=800 \
+  --max_train_steps=500 \
 
 done
