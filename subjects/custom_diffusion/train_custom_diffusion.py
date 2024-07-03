@@ -1,31 +1,15 @@
-#!/usr/bin/env python
-# coding=utf-8
-# Copyright 2024 Custom Diffusion authors and the HuggingFace Inc. team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-
 import argparse
+import hashlib
 import itertools
 import json
 import logging
 import math
 import os
 import random
-import shutil
 import warnings
 from pathlib import Path
 
 import numpy as np
-import safetensors
 import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint
@@ -34,7 +18,6 @@ from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
 from huggingface_hub import HfApi, create_repo
-from huggingface_hub.utils import insecure_hashlib
 from packaging import version
 from PIL import Image
 from torch.utils.data import Dataset
@@ -51,19 +34,14 @@ from diffusers import (
     UNet2DConditionModel,
 )
 from diffusers.loaders import AttnProcsLayers
-from diffusers.models.attention_processor import (
-    CustomDiffusionAttnProcessor,
-    CustomDiffusionAttnProcessor2_0,
-    CustomDiffusionXFormersAttnProcessor,
-)
+from diffusers.models.attention_processor import CustomDiffusionAttnProcessor, CustomDiffusionXFormersAttnProcessor
 from diffusers.optimization import get_scheduler
 from diffusers.utils import check_min_version, is_wandb_available
-from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_card
 from diffusers.utils.import_utils import is_xformers_available
 
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
-check_min_version("0.30.0.dev0")
+check_min_version("0.15.0.dev0")
 
 logger = get_logger(__name__)
 
@@ -79,35 +57,28 @@ def save_model_card(repo_id: str, images=None, base_model=str, prompt=str, repo_
         image.save(os.path.join(repo_folder, f"image_{i}.png"))
         img_str += f"![img_{i}](./image_{i}.png)\n"
 
-    model_description = f"""
+    yaml = f"""
+---
+license: creativeml-openrail-m
+base_model: {base_model}
+instance_prompt: {prompt}
+tags:
+- stable-diffusion
+- stable-diffusion-diffusers
+- text-to-image
+- diffusers
+- custom-diffusion
+inference: true
+---
+    """
+    model_card = f"""
 # Custom Diffusion - {repo_id}
-
 These are Custom Diffusion adaption weights for {base_model}. The weights were trained on {prompt} using [Custom Diffusion](https://www.cs.cmu.edu/~custom-diffusion). You can find some example images in the following. \n
 {img_str}
-
 \nFor more details on the training, please follow [this link](https://github.com/huggingface/diffusers/blob/main/examples/custom_diffusion).
 """
-    model_card = load_or_create_model_card(
-        repo_id_or_path=repo_id,
-        from_training=True,
-        license="creativeml-openrail-m",
-        base_model=base_model,
-        prompt=prompt,
-        model_description=model_description,
-        inference=True,
-    )
-
-    tags = [
-        "text-to-image",
-        "diffusers",
-        "stable-diffusion",
-        "stable-diffusion-diffusers",
-        "custom-diffusion",
-        "diffusers-training",
-    ]
-    model_card = populate_model_card(model_card, tags=tags)
-
-    model_card.save(os.path.join(repo_folder, "README.md"))
+    with open(os.path.join(repo_folder, "README.md"), "w") as f:
+        f.write(yaml + model_card)
 
 
 def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: str, revision: str):
@@ -152,7 +123,7 @@ def collate_fn(examples, with_prior_preservation):
 
 
 class PromptDataset(Dataset):
-    """A simple dataset to prepare the prompts to generate class images on multiple GPUs."""
+    "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
 
     def __init__(self, prompt, num_samples):
         self.prompt = prompt
@@ -213,7 +184,7 @@ class CustomDiffusionDataset(Dataset):
                     with open(concept["class_prompt"], "r") as f:
                         class_prompt = f.read().splitlines()
 
-                class_img_path = list(zip(class_images_path, class_prompt))
+                class_img_path = [(x, y) for (x, y) in zip(class_images_path, class_prompt)]
                 self.class_images_path.extend(class_img_path[:num_class_images])
 
         random.shuffle(self.instance_images_path)
@@ -307,19 +278,14 @@ class CustomDiffusionDataset(Dataset):
         return example
 
 
-def save_new_embed(text_encoder, modifier_token_id, accelerator, args, output_dir, safe_serialization=True):
+def save_new_embed(text_encoder, modifier_token_id, accelerator, args, output_dir):
     """Saves the new token embeddings from the text encoder."""
     logger.info("Saving embeddings")
     learned_embeds = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight
     for x, y in zip(modifier_token_id, args.modifier_token):
         learned_embeds_dict = {}
         learned_embeds_dict[y] = learned_embeds[x]
-        filename = f"{output_dir}/{y}.bin"
-
-        if safe_serialization:
-            safetensors.torch.save_file(learned_embeds_dict, filename, metadata={"format": "pt"})
-        else:
-            torch.save(learned_embeds_dict, filename)
+        torch.save(learned_embeds_dict, f"{output_dir}/{y}.bin")
 
 
 def parse_args(input_args=None):
@@ -337,12 +303,6 @@ def parse_args(input_args=None):
         default=None,
         required=False,
         help="Revision of pretrained model identifier from huggingface.co/models.",
-    )
-    parser.add_argument(
-        "--variant",
-        type=str,
-        default=None,
-        help="Variant of the model files of the pretrained model identifier from huggingface.co/models, 'e.g.' fp16",
     )
     parser.add_argument(
         "--tokenizer_name",
@@ -469,7 +429,11 @@ def parse_args(input_args=None):
         "--checkpoints_total_limit",
         type=int,
         default=None,
-        help=("Max number of checkpoints to store."),
+        help=(
+            "Max number of checkpoints to store. Passed as `total_limit` to the `Accelerator` `ProjectConfiguration`."
+            " See Accelerator::save_state https://huggingface.co/docs/accelerate/package_reference/accelerator#accelerate.Accelerator.save_state"
+            " for more docs"
+        ),
     )
     parser.add_argument(
         "--resume_from_checkpoint",
@@ -627,11 +591,6 @@ def parse_args(input_args=None):
         action="store_true",
         help="Dont apply augmentation during data augmentation when this flag is enabled.",
     )
-    parser.add_argument(
-        "--no_safe_serialization",
-        action="store_true",
-        help="If specified save the checkpoint not in `safetensors` format, but in original PyTorch format instead.",
-    )
 
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -659,15 +618,10 @@ def parse_args(input_args=None):
 
 
 def main(args):
-    if args.report_to == "wandb" and args.hub_token is not None:
-        raise ValueError(
-            "You cannot use both --report_to=wandb and --hub_token due to a security risk of exposing your token."
-            " Please use `huggingface-cli login` to authenticate with the Hub."
-        )
-
-    logging_dir = Path(args.output_dir, args.logging_dir)
-
-    accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=logging_dir)
+    logging_dir = os.path.join(args.output_dir, args.logging_dir)
+    accelerator_project_config = ProjectConfiguration(
+        total_limit=args.checkpoints_total_limit, project_dir=args.output_dir, logging_dir=logging_dir
+    )
 
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
@@ -675,10 +629,6 @@ def main(args):
         log_with=args.report_to,
         project_config=accelerator_project_config,
     )
-
-    # Disable AMP for MPS.
-    if torch.backends.mps.is_available():
-        accelerator.native_amp = False
 
     if args.report_to == "wandb":
         if not is_wandb_available():
@@ -762,14 +712,13 @@ def main(args):
                         torch_dtype=torch_dtype,
                         safety_checker=None,
                         revision=args.revision,
-                        variant=args.variant,
                     )
                     pipeline.set_progress_bar_config(disable=True)
 
                     num_new_images = args.num_class_images - cur_class_images
                     logger.info(f"Number of class images to sample: {num_new_images}.")
 
-                    sample_dataset = PromptDataset(concept["class_prompt"], num_new_images)
+                    sample_dataset = PromptDataset(args.class_prompt, num_new_images)
                     sample_dataloader = torch.utils.data.DataLoader(sample_dataset, batch_size=args.sample_batch_size)
 
                     sample_dataloader = accelerator.prepare(sample_dataloader)
@@ -783,7 +732,7 @@ def main(args):
                         images = pipeline(example["prompt"]).images
 
                         for i, image in enumerate(images):
-                            hash_image = insecure_hashlib.sha1(image.tobytes()).hexdigest()
+                            hash_image = hashlib.sha1(image.tobytes()).hexdigest()
                             image_filename = (
                                 class_images_dir / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
                             )
@@ -824,13 +773,11 @@ def main(args):
     # Load scheduler and models
     noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
     text_encoder = text_encoder_cls.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision
     )
-    vae = AutoencoderKL.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision, variant=args.variant
-    )
+    vae = AutoencoderKL.from_pretrained(args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision)
     unet = UNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision
     )
 
     # Adding a modifier token which is optimized ####
@@ -855,7 +802,6 @@ def main(args):
 
             # Convert the initializer_token, placeholder_token to ids
             token_ids = tokenizer.encode([initializer_token], add_special_tokens=False)
-            print(token_ids)
             # Check if initializer_token is a single token or a sequence of tokens
             if len(token_ids) > 1:
                 raise ValueError("The initializer token must be a single token.")
@@ -899,16 +845,14 @@ def main(args):
     unet.to(accelerator.device, dtype=weight_dtype)
     vae.to(accelerator.device, dtype=weight_dtype)
 
-    attention_class = (
-        CustomDiffusionAttnProcessor2_0 if hasattr(F, "scaled_dot_product_attention") else CustomDiffusionAttnProcessor
-    )
+    attention_class = CustomDiffusionAttnProcessor
     if args.enable_xformers_memory_efficient_attention:
         if is_xformers_available():
             import xformers
 
             xformers_version = version.parse(xformers.__version__)
             if xformers_version == version.parse("0.0.16"):
-                logger.warning(
+                logger.warn(
                     "xFormers 0.0.16 cannot be used for training in some GPUs. If you observe problems during training, please update xFormers to at least 0.0.17. See https://huggingface.co/docs/diffusers/main/en/optimization/xformers for more details."
                 )
             attention_class = CustomDiffusionXFormersAttnProcessor
@@ -928,6 +872,8 @@ def main(args):
     # - up blocks (2x attention layers) * (3x transformer layers) * (3x down blocks) = 18
     # => 32 layers
 
+
+    # 在这里设置KV的训练参数
     # Only train key, value projection layers if freeze_model = 'crossattn_kv' else train all params in the cross attention layer
     train_kv = True
     train_q_out = False if args.freeze_model == "crossattn_kv" else True
@@ -1049,8 +995,8 @@ def main(args):
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
         optimizer=optimizer,
-        num_warmup_steps=args.lr_warmup_steps * accelerator.num_processes,
-        num_training_steps=args.max_train_steps * accelerator.num_processes,
+        num_warmup_steps=args.lr_warmup_steps * args.gradient_accumulation_steps,
+        num_training_steps=args.max_train_steps * args.gradient_accumulation_steps,
     )
 
     # Prepare everything with our `accelerator`.
@@ -1100,30 +1046,30 @@ def main(args):
                 f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
             )
             args.resume_from_checkpoint = None
-            initial_global_step = 0
         else:
             accelerator.print(f"Resuming from checkpoint {path}")
             accelerator.load_state(os.path.join(args.output_dir, path))
             global_step = int(path.split("-")[1])
 
-            initial_global_step = global_step
+            resume_global_step = global_step * args.gradient_accumulation_steps
             first_epoch = global_step // num_update_steps_per_epoch
-    else:
-        initial_global_step = 0
+            resume_step = resume_global_step % (num_update_steps_per_epoch * args.gradient_accumulation_steps)
 
-    progress_bar = tqdm(
-        range(0, args.max_train_steps),
-        initial=initial_global_step,
-        desc="Steps",
-        # Only show the progress bar once on each machine.
-        disable=not accelerator.is_local_main_process,
-    )
+    # Only show the progress bar once on each machine.
+    progress_bar = tqdm(range(global_step, args.max_train_steps), disable=not accelerator.is_local_main_process)
+    progress_bar.set_description("Steps")
 
     for epoch in range(first_epoch, args.num_train_epochs):
         unet.train()
         if args.modifier_token is not None:
             text_encoder.train()
         for step, batch in enumerate(train_dataloader):
+            # Skip steps until we reach the resumed step
+            if args.resume_from_checkpoint and epoch == first_epoch and step < resume_step:
+                if step % args.gradient_accumulation_steps == 0:
+                    progress_bar.update(1)
+                continue
+
             with accelerator.accumulate(unet), accelerator.accumulate(text_encoder):
                 # Convert images to latent space
                 latents = vae.encode(batch["pixel_values"].to(dtype=weight_dtype)).latent_dist.sample()
@@ -1161,6 +1107,7 @@ def main(args):
                     mask = torch.chunk(batch["mask"], 2, dim=0)[0]
                     # Compute instance loss
                     loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
+
                     loss = ((loss * mask).sum([1, 2, 3]) / mask.sum([1, 2, 3])).mean()
 
                     # Compute prior loss
@@ -1182,7 +1129,7 @@ def main(args):
                         grads_text_encoder = text_encoder.get_input_embeddings().weight.grad
                     # Get the index for tokens that we want to zero the grads for
                     index_grads_to_zero = torch.arange(len(tokenizer)) != modifier_token_id[0]
-                    for i in range(1, len(modifier_token_id)):
+                    for i in range(len(modifier_token_id[1:])):
                         index_grads_to_zero = index_grads_to_zero & (
                             torch.arange(len(tokenizer)) != modifier_token_id[i]
                         )
@@ -1208,26 +1155,6 @@ def main(args):
 
                 if global_step % args.checkpointing_steps == 0:
                     if accelerator.is_main_process:
-                        # _before_ saving state, check if this save would set us over the `checkpoints_total_limit`
-                        if args.checkpoints_total_limit is not None:
-                            checkpoints = os.listdir(args.output_dir)
-                            checkpoints = [d for d in checkpoints if d.startswith("checkpoint")]
-                            checkpoints = sorted(checkpoints, key=lambda x: int(x.split("-")[1]))
-
-                            # before we save the new checkpoint, we need to have at _most_ `checkpoints_total_limit - 1` checkpoints
-                            if len(checkpoints) >= args.checkpoints_total_limit:
-                                num_to_remove = len(checkpoints) - args.checkpoints_total_limit + 1
-                                removing_checkpoints = checkpoints[0:num_to_remove]
-
-                                logger.info(
-                                    f"{len(checkpoints)} checkpoints already exist, removing {len(removing_checkpoints)} checkpoints"
-                                )
-                                logger.info(f"removing checkpoints: {', '.join(removing_checkpoints)}")
-
-                                for removing_checkpoint in removing_checkpoints:
-                                    removing_checkpoint = os.path.join(args.output_dir, removing_checkpoint)
-                                    shutil.rmtree(removing_checkpoint)
-
                         save_path = os.path.join(args.output_dir, f"checkpoint-{global_step}")
                         accelerator.save_state(save_path)
                         logger.info(f"Saved state to {save_path}")
@@ -1239,86 +1166,67 @@ def main(args):
             if global_step >= args.max_train_steps:
                 break
 
-            if accelerator.is_main_process:
-                images = []
+        if accelerator.is_main_process:
+            if args.validation_prompt is not None and global_step % args.validation_steps == 0:
+                logger.info(
+                    f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
+                    f" {args.validation_prompt}."
+                )
+                # create pipeline
+                pipeline = DiffusionPipeline.from_pretrained(
+                    args.pretrained_model_name_or_path,
+                    unet=accelerator.unwrap_model(unet),
+                    text_encoder=accelerator.unwrap_model(text_encoder),
+                    tokenizer=tokenizer,
+                    revision=args.revision,
+                )
+                pipeline.scheduler = DPMSolverMultistepScheduler.from_config(pipeline.scheduler.config)
+                pipeline = pipeline.to(accelerator.device)
+                pipeline.set_progress_bar_config(disable=True)
 
-                if args.validation_prompt is not None and global_step % args.validation_steps == 0:
-                    logger.info(
-                        f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
-                        f" {args.validation_prompt}."
-                    )
-                    # create pipeline
-                    pipeline = DiffusionPipeline.from_pretrained(
-                        args.pretrained_model_name_or_path,
-                        unet=accelerator.unwrap_model(unet),
-                        text_encoder=accelerator.unwrap_model(text_encoder),
-                        tokenizer=tokenizer,
-                        revision=args.revision,
-                        variant=args.variant,
-                        torch_dtype=weight_dtype,
-                    )
-                    pipeline.scheduler = DPMSolverMultistepScheduler.from_config(pipeline.scheduler.config)
-                    pipeline = pipeline.to(accelerator.device)
-                    pipeline.set_progress_bar_config(disable=True)
+                # run inference
+                generator = torch.Generator(device=accelerator.device).manual_seed(args.seed)
+                images = [
+                    pipeline(args.validation_prompt, num_inference_steps=25, generator=generator, eta=1.0).images[0]
+                    for _ in range(args.num_validation_images)
+                ]
 
-                    # run inference
-                    generator = torch.Generator(device=accelerator.device).manual_seed(args.seed)
-                    images = [
-                        pipeline(args.validation_prompt, num_inference_steps=25, generator=generator, eta=1.0).images[
-                            0
-                        ]
-                        for _ in range(args.num_validation_images)
-                    ]
+                for tracker in accelerator.trackers:
+                    if tracker.name == "tensorboard":
+                        np_images = np.stack([np.asarray(img) for img in images])
+                        tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
+                    if tracker.name == "wandb":
+                        tracker.log(
+                            {
+                                "validation": [
+                                    wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
+                                    for i, image in enumerate(images)
+                                ]
+                            }
+                        )
 
-                    for tracker in accelerator.trackers:
-                        if tracker.name == "tensorboard":
-                            np_images = np.stack([np.asarray(img) for img in images])
-                            tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
-                        if tracker.name == "wandb":
-                            tracker.log(
-                                {
-                                    "validation": [
-                                        wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
-                                        for i, image in enumerate(images)
-                                    ]
-                                }
-                            )
-
-                    del pipeline
-                    torch.cuda.empty_cache()
+                del pipeline
+                torch.cuda.empty_cache()
 
     # Save the custom diffusion layers
     accelerator.wait_for_everyone()
     if accelerator.is_main_process:
         unet = unet.to(torch.float32)
-        unet.save_attn_procs(args.output_dir, safe_serialization=not args.no_safe_serialization)
-        save_new_embed(
-            text_encoder,
-            modifier_token_id,
-            accelerator,
-            args,
-            args.output_dir,
-            safe_serialization=not args.no_safe_serialization,
-        )
+        unet.save_attn_procs(args.output_dir)
+        save_new_embed(text_encoder, modifier_token_id, accelerator, args, args.output_dir)
 
         # Final inference
         # Load previous pipeline
         pipeline = DiffusionPipeline.from_pretrained(
-            args.pretrained_model_name_or_path, revision=args.revision, variant=args.variant, torch_dtype=weight_dtype
+            args.pretrained_model_name_or_path, revision=args.revision, torch_dtype=weight_dtype
         )
         pipeline.scheduler = DPMSolverMultistepScheduler.from_config(pipeline.scheduler.config)
         pipeline = pipeline.to(accelerator.device)
 
         # load attention processors
-        weight_name = (
-            "pytorch_custom_diffusion_weights.safetensors"
-            if not args.no_safe_serialization
-            else "pytorch_custom_diffusion_weights.bin"
-        )
-        pipeline.unet.load_attn_procs(args.output_dir, weight_name=weight_name)
+        pipeline.unet.load_attn_procs(args.output_dir, weight_name="pytorch_custom_diffusion_weights.bin")
         for token in args.modifier_token:
-            token_weight_name = f"{token}.safetensors" if not args.no_safe_serialization else f"{token}.bin"
-            pipeline.load_textual_inversion(args.output_dir, weight_name=token_weight_name)
+            pipeline.load_textual_inversion(args.output_dir, weight_name=f"{token}.bin")
 
         # run inference
         if args.validation_prompt and args.num_validation_images > 0:
