@@ -52,7 +52,7 @@ declare -A subject_with_cls=(
 )
 
 # 模型名称
-MODEL_NAME="runwayml/stable-diffusion-v1-5"
+MODEL_NAME="CompVis/stable-diffusion-v1-4"
 
 # 数据集根目录
 DATASET_DIR="../../pcs_dataset/subjects"
