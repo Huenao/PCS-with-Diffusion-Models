@@ -63,7 +63,7 @@ for subject in "${!subject_with_cls[@]}"; do
   CLASS_DIR="class_images/$class"
 
   accelerate launch --main_process_port=29519 \
-  --gpu_ids=1 \
+  --gpu_ids=3 \
   train_custom_diffusion.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --instance_data_dir=$INSTANCE_DIR \

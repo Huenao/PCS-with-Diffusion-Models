@@ -63,7 +63,7 @@ for subject in "${!subject_with_cls[@]}"; do
   CLASS_DIR="class_images/$class"
 
   accelerate launch --main_process_port=29518 \
-  --gpu_ids=7 \
+  --gpu_ids=2 \
   train_dreambooth.py \
   --pretrained_model_name_or_path=$MODEL_NAME  \
   --instance_data_dir=$INSTANCE_DIR \

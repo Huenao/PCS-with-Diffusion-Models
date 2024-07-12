@@ -65,7 +65,7 @@ for subject in "${!subject_with_cls[@]}"; do
   DATA_DIR="$DATASET_DIR/$subject"
 
   accelerate launch --main_process_port=29513 \
-    --gpu_ids=4 \
+    --gpu_ids=0 \
     train_p_plus.py \
     --pretrained_model_name_or_path=$MODEL_NAME \
     --train_data_dir=$DATA_DIR \
