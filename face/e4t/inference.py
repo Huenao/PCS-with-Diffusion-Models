@@ -1,6 +1,5 @@
 import argparse
 import os
-from tqdm import tqdm
 from PIL import Image
 import torch
 from diffusers import (
@@ -29,7 +28,7 @@ def image_grid(imgs, rows, cols):
     return grid
 
 
-def parse_args():
+def parse_args(list):
     parser = argparse.ArgumentParser()
     parser.add_argument("--image_path_or_url", type=str, help="path to the input image")
     parser.add_argument("--pretrained_model_name_or_path", type=str, help="model dir including config.json, encoder.pt, weight_offsets.pt")
@@ -44,7 +43,7 @@ def parse_args():
     parser.add_argument("--scheduler_type", type=str, choices=["ddim", "plms", "lms", "euler", "euler_ancestral", "dpm_solver++"], default="ddim", help="diffusion scheduler type")
     parser.add_argument("--enable_xformers_memory_efficient_attention", action="store_true", help="Whether or not to use xformers.")
     
-    opt = parser.parse_args()
+    opt = parser.parse_args(list)
     return opt
 
 
@@ -72,7 +71,7 @@ SCHEDULER_MAPPING = {
 }
 
 
-def main(args):
+def e4t_inference(args):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"device: {device}")
@@ -135,7 +134,7 @@ def main(args):
         generator = torch.Generator(device=device).manual_seed(args.seed)
     prompts = args.prompt.split("::")
     all_images = []
-    for prompt in tqdm(prompts):
+    for prompt in prompts:
         with torch.autocast(device), torch.inference_mode():
             images = pipe(
                 prompt,
@@ -148,13 +147,15 @@ def main(args):
                 width=args.width,
             ).images
         all_images.extend(images)
-    grid_image = image_grid(all_images, len(prompts), args.num_images_per_prompt)
-    grid_image.save("grid.png")
-    print("DONE! See `grid.png` for the results!")
+    # grid_image = image_grid(all_images, len(prompts), args.num_images_per_prompt)
+    # grid_image.save("grid.png")
+    # print("DONE! See `grid.png` for the results!")
+
+    return all_images
 
 
 if __name__ == '__main__':
     args = parse_args()
 
-    main(args)
+    e4t_inference(args)
 
