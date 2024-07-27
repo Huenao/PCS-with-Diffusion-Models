@@ -23,7 +23,7 @@ model:
       target: perfusion.embedding_manager.EmbeddingManager
       params:
         placeholder_strings: [ "*" ]
-        initializer_words: [ "cat" ]
+        initializer_words: [ "your_super_class" ]
         num_vectors_per_token: 1
         progressive_words: False
 
@@ -79,7 +79,7 @@ data:
     train:
       target: perfusion.dataset.PersonalizedBase
       params:
-        data_root: '../../pcs_dataset/subjects/cat'
+        data_root: '/path/to/your/images/'
         flip_p: 0.5  # 0. when asymmetric
 
 lightning:
