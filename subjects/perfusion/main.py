@@ -425,7 +425,8 @@ if __name__ == "__main__":
             name = "_" + cfg_name
         else:
             name = ""
-        nowname = now + name + opt.postfix
+        # nowname = now + name + opt.postfix
+        nowname = opt.name
         logdir = os.path.join(opt.basedir, nowname)
 
     ckptdir = os.path.join(logdir, "models")

@@ -42,7 +42,7 @@ class PersonalizedBase(Dataset):
 
         files = [f for f in os.listdir(self.data_root) if f.split('.')[-1].lower() in ['png', 'jpg', 'jpeg']]
         self.image_paths = [os.path.join(self.data_root, f) for f in files]
-        self.mask_paths = [os.path.join(self.data_root, 'mask', f) for f in files]
+        self.mask_paths = [os.path.join(self.data_root, 'perfusion_mask', f) for f in files]
 
         # self._length = len(self.image_paths)
         self.num_images = len(self.image_paths)
