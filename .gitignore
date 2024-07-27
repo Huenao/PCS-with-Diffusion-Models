@@ -18,6 +18,14 @@ models
 #ELITE
 checkpoints
 
+#perfusion
+/subjects/perfusion/ckpt/v1-5-pruned-emaonly.ckpt
+weights
+!/subjects/perfusion/data
+!/subjects/perfusion/clipseg/models
+!/subjects/perfusion/ldm/data
+!/subjects/perfusion/ldm/models
+
 # IDE
 .vscode/
 
