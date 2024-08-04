@@ -86,8 +86,9 @@ def evaluate_i2i(generate_img_path, source_img_path):
     else:
         similarity_score = []
         for file_name in os.listdir(source_img_path):
-            src_images = Image.open(os.path.join(source_img_path, file_name))
-            similarity_score.append(evaluator.img_to_img_similarity(generate_images, src_images=src_images).cpu().numpy())
+            if os.path.isfile(os.path.join(source_img_path, file_name)):
+                src_images = Image.open(os.path.join(source_img_path, file_name))
+                similarity_score.append(evaluator.img_to_img_similarity(generate_images, src_images=src_images).cpu().numpy())
         return np.mean(similarity_score)
 
 
