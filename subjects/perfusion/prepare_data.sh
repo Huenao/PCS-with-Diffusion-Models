@@ -50,7 +50,7 @@ declare -A subject_with_cls=(
   ["table"]="table"
 )
 
-DATASET_DIR="../../pcs_dataset/subjects/"
+DATASET_DIR="../../pcs_dataset/subjects"
 
 for subject in "${!subject_with_cls[@]}"; do
 
