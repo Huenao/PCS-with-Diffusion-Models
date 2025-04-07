@@ -1,3 +1,6 @@
+> [!NOTE]
+> This repository has been merged into repo [awesome-personalization](https://github.com/zhangxulu1996/awesome-personalization).
+
 <center>
 
 # PCS Survey
