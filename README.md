@@ -1,5 +1,5 @@
 > [!NOTE]
-> This repository has been merged into repo [awesome-personalization](https://github.com/zhangxulu1996/awesome-personalization).
+> This repository has been merged into the repo [awesome-personalization](https://github.com/zhangxulu1996/awesome-personalization).
 
 <center>
 
@@ -17,9 +17,5 @@ To uniformly evaluate Personalized Content Synthesis (PCS) tasks, we introduces 
 personalized generation tasks, **object** and **face** personalization.
 
 Download Link: [PCS-dataset](https://drive.google.com/file/d/1WuEx29UWAZC18rz-raiglf14CR0DvA3G/view?usp=drive_link)
-
-## Existing Methods
-
-
 
 
